@@ -15,12 +15,23 @@ from modules.storeusername import store
 from selenium import webdriver
 from selenium.webdriver import ActionChains
 from selenium.webdriver.common.keys import Keys  # and Krates
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.support.ui import Select
+
 import requests
 import re
 import logging
+
+import requests
+import time
 # from fake_useragent import UserAgent
 
 # from pymailutils import Imap
+
+# API Endpoint for Temp Mail
+TEMP_MAIL_API = "https://api.tempmail.lol"
 
 class AccountCreator():
     account_created = 0
@@ -50,7 +61,7 @@ class AccountCreator():
         chrome_options.add_argument('--user-agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.80 Safari/537.36"')
         # chrome_options.add_argument("--incognito")
         chrome_options.add_argument('window-size=1200x600')
-        driver = webdriver.Chrome(chrome_options=chrome_options, executable_path=config.Config['chromedriver_path'])
+        driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
         print('Opening Browser')
         driver.get(self.url)
 
@@ -63,21 +74,22 @@ class AccountCreator():
         action_chains = ActionChains(driver)
         sleep(5)
         account_info = accnt.new_account()
-
+      
+ 
         # fill the email value
         print('Filling email field')
-        email_field = driver.find_element_by_name('emailOrPhone')
+        email_field = driver.find_element('name', 'emailOrPhone')
         print(email_field)
         sleep(1)
         action_chains.move_to_element(email_field)
         print(account_info["email"])
-        email_field.send_keys(str(account_info["email"]))
+        email_field.send_keys(account_info["email"])
 
         sleep(2)
 
         # fill the fullname value
         print('Filling fullname field')
-        fullname_field = driver.find_element_by_name('fullName')
+        fullname_field = driver.find_element('name', 'fullName')
         action_chains.move_to_element(fullname_field)
         fullname_field.send_keys(account_info["name"])
 
@@ -85,7 +97,7 @@ class AccountCreator():
 
         # fill username value
         print('Filling username field')
-        username_field = driver.find_element_by_name('username')
+        username_field = driver.find_element('name', 'username')
         action_chains.move_to_element(username_field)
         username_field.send_keys(account_info["username"])
 
@@ -93,7 +105,7 @@ class AccountCreator():
 
         # fill password value
         print('Filling password field')
-        password_field = driver.find_element_by_name('password')
+        password_field = driver.find_element('name', 'password')
         action_chains.move_to_element(password_field)
         passW = account_info["password"]
         print(passW)
@@ -102,8 +114,8 @@ class AccountCreator():
 
         sleep(2)
 
-        submit = driver.find_element_by_xpath(
-            '//*[@id="react-root"]/section/main/div/div/div[1]/div/form/div[7]/div/button')
+        submit = driver.find_element('xpath', "//button[@type='submit']")
+
 
         action_chains.move_to_element(submit)
 
@@ -113,27 +125,63 @@ class AccountCreator():
         sleep(3)
         try:
 
-            month_button = driver.find_element_by_xpath( '//*[@id="react-root"]/section/main/div/div/div[1]/div/div[4]/div/div/span/span[1]/select')
+            
+            month_button = driver.find_element('xpath', '//select[@title="Month:"]')
             month_button.click()
             month_button.send_keys(account_info["birthday"].split(" ")[0])
             sleep(1)
-            day_button = driver.find_element_by_xpath('//*[@id="react-root"]/section/main/div/div/div[1]/div/div[4]/div/div/span/span[2]/select')
+            day_button = driver.find_element('xpath', '//select[@title="Day:"]')
             day_button.click()
-            day_button.send_keys(account_info["birthday"].split[" "][1][:-1])
+            day_button.send_keys(account_info["birthday"].split(" ")[1].replace(",", ""))
             sleep(1)
-            year_button = driver.find_element_by_xpath('//*[@id="react-root"]/section/main/div/div/div[1]/div/div[4]/div/div/span/span[3]/select')
-            year_button.click()
-            year_button.send_keys(account_info["birthday"].split[" "][2])
+            year_button = driver.find_element('xpath', '//select[@title="Year:"]')
+
+            # Create a Select object
+            year_select = Select(year_button)
+            # Extract the year from the account_info and replace any commas
+            year_value = account_info["birthday"].split(" ")[2].replace(",", "")
+
+            # Select the year by value
+            year_select.select_by_value(year_value)
 
             sleep(2)
-            next_button = driver.find_elements_by_xpath('//*[@id="react-root"]/section/main/div/div/div[1]/div/div[6]/button')
+            next_button = driver.find_element('xpath', "//button[text()='Next']")
             next_button.click()
 
+            sleep(4)
+
+            if account_info["email"] and account_info["token"]:
+                # Provide this temporary email during sign-up or verification
+                print(f"Use this temporary email: {account_info['email']} to sign up")
+
+                # Poll inbox for the verification email
+                sender, subject, body = accnt.check_inbox(account_info["token"])
+                print(f"Sender: {sender}, Subject: {subject}")
+                print(f"Email Body: {body}")
+
+                # Extract verification code
+                code = accnt.extract_verification_code(body)
+
+                
+                confirmation_code = driver.find_element('name', 'email_confirmation_code')
+
+                if code:
+                    print(f"Verification code: {code}")
+                    confirmation_code.send_keys(code)
+                    time.sleep(2)
+                    next_button2 = driver.find_element('xpath', "//div[text()='Next']")
+                    next_button2.click()
+
+                else:
+                    print("No verification code found.")
+            sleep(10)
+
         except Exception as e :
+            print(e.with_traceback)
             pass
 
 
-        sleep(4)
+        sleep(5)
         # After the first fill save the account account_info
         store(account_info)
         
@@ -167,22 +215,22 @@ class AccountCreator():
                             amount_per_proxy = config.Config['amount_per_proxy']
 
                             if amount_per_proxy != 0:
-                                print("Creating {} amount of users for this proxy".format(amount_per_proxy))
+                                print("Creating {} amount of users for this proxy".format(str(amount_per_proxy)))
                                 for i in range(0, amount_per_proxy):
                                     try:
                                         self.createaccount(proxy)
 
                                     except Exception as e:
-                                        print("An error has occured" + e)
+                                        print("An error has occured" + str(e))
 
                             else:
-                                random_number = randint(1, 20)
+                                random_number = str(randint(1, 20))
                                 print("Creating {} amount of users for this proxy".format(random_number))
                                 for i in range(0, random_number):
                                     try:
                                         self.createaccount(proxy)
                                     except Exception as e:
-                                        print(e)
+                                        print(str(e))
             else:
                 for i in range(0, config.Config['amount_of_account']):
                             try:

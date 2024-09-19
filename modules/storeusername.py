@@ -1,5 +1,5 @@
 from .config import Config, ASSET_DIR
-import logging
+import logging 
 import pickle
 import csv
 
@@ -10,7 +10,7 @@ def store(account):
         pickle.dump(str(account), f, pickle.HIGHEST_PROTOCOL)
 
     # storing username.csv file
-    with open('usernames.csv', 'w', newline='') as file:
+    with open(ASSET_DIR +'/usernames.csv', 'w', newline='') as file:
         logging.info("Storing username {}".format(str(account['username'])))
         logging.info(str(account))
         writer = csv.writer(file)
